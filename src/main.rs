@@ -130,15 +130,15 @@ impl<T: Clone + Ord> VecExtensionSort<T> for Vec<T> {
 
 
 
-pub trait U64ExtensionDivWithNDigitsAfterDecimalPoint {
-    fn div_with_n_digits_after_decimal_point(&self, other: u64, n_digits_after_decimal_point: u8) -> f64;
-}
-impl U64ExtensionDivWithNDigitsAfterDecimalPoint for u64 {
-    fn div_with_n_digits_after_decimal_point(&self, other: u64, n: u8) -> f64 {
-        let sh: u64 = 10_u32.pow(n as u32) as u64;
-        (sh * self / other) as f64 / (sh as f64)
-    }
-}
+// pub trait U64ExtensionDivWithNDigitsAfterDecimalPoint {
+//     fn div_with_n_digits_after_decimal_point(&self, other: u64, n_digits_after_decimal_point: u8) -> f64;
+// }
+// impl U64ExtensionDivWithNDigitsAfterDecimalPoint for u64 {
+//     fn div_with_n_digits_after_decimal_point(&self, other: u64, n: u8) -> f64 {
+//         let sh: u64 = 10_u32.pow(n as u32) as u64;
+//         (sh * self / other) as f64 / (sh as f64)
+//     }
+// }
 
 
 
@@ -263,109 +263,6 @@ type Frame = Array2dBool<FRAME_WH>;
 
 
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct HuffmanCompressed {
-    vec_compressed: VecCompressed,
-    dict_decompress: DictDecompress,
-}
-
-impl HuffmanCompressed {
-    pub fn new() -> HuffmanCompressed { HuffmanCompressed { vec_compressed: Vec::new(), dict_decompress: HashMap::new() } }
-
-    pub const fn from_vec_and_dict(vec_compressed: VecCompressed, dict_decompress: DictDecompress) -> HuffmanCompressed {
-        HuffmanCompressed { vec_compressed, dict_decompress }
-    }
-
-    pub fn from_array2d<const N: usize>(array2d: Array2dBool<N>, word_len: usize) -> HuffmanCompressed {
-        array2d.compress(word_len)
-    }
-
-    pub fn get_vec(self) -> VecCompressed { self.vec_compressed }
-    pub fn get_dict(self) -> DictDecompress { self.dict_decompress }
-    /// get VecCompressed and DictDecompress
-    pub fn get_vec_and_dict(self) -> (VecCompressed, DictDecompress) { (self.vec_compressed, self.dict_decompress) }
-
-    pub fn get_vec_ref(&self) -> &VecCompressed { &self.vec_compressed }
-    pub fn get_dict_ref(&self) -> &DictDecompress { &self.dict_decompress }
-    /// get references on VecCompressed and DictDecompress
-    pub fn get_vec_and_dict_ref(&self) -> (&VecCompressed, &DictDecompress) { (self.get_vec_ref(), self.get_dict_ref()) }
-
-    pub fn calc_weight(&self) -> usize {
-        let (vec_compressed, dict_decompress) = self.get_vec_and_dict_ref();
-        let mut res = 0;
-        res += vec_compressed.len();
-        for (key, value) in dict_decompress {
-            res += key.len() + value.len() + 1;
-        }
-        res
-    }
-
-    pub fn decompress<const N: usize>(&self) -> Array2dBool<N> {
-        let vec_compressed = &self.vec_compressed;
-        let dict_decompress = &self.dict_decompress;
-        let mut res_vec: Vec<bool> = Vec::with_capacity(N);
-        let mut word_compressed: WordCompressed = vec![];
-        for &bit in vec_compressed {
-            word_compressed.push(bit);
-            if dict_decompress.contains_key(&word_compressed) {
-                let word_uncompressed: WordUncompressed = dict_decompress.get(&word_compressed).unwrap().clone();
-                res_vec.extend(word_uncompressed);
-                word_compressed = vec![];
-            }
-        }
-        assert_eq!(N, res_vec.len());
-        let mut res_array: Array2dBool<N> = Array2dBool::new(false);
-        for i in 0..res_vec.len() {
-            res_array.elements[i] = res_vec[i];
-        }
-        res_array
-    }
-
-}
-
-
-
-/// returns tuple of
-/// - compressed array
-/// - dict for decompression
-pub fn compress_any_array<A>(elements: &A, word_len: usize) -> HuffmanCompressed
-where A: Len + Index<usize, Output=bool> // this is Array (rust array or Vec)
-{
-    let n: usize = elements.len();
-    let mut words_freq: HashMap<WordUncompressed, u32> = HashMap::new();
-
-    for i in (0..n).step_by(word_len) {
-        let mut word: Vec<bool> = Vec::with_capacity(word_len);
-        for j in 0..word_len {
-            word.push(if i+j < n {elements[i+j]} else {false});
-        }
-        // println!("word = {}", word.to_01_string());
-        assert_eq!(word_len, word.len());
-        words_freq.set_or_inc(word);
-    }
-    // println!("map = {:?}\n\n", words_freq);
-
-    let dict_compress: DictCompress = build_best_dictionary(words_freq.into_iter().collect());
-
-    let mut vec_compressed: VecCompressed = vec![];
-    for i in (0..n).step_by(word_len) {
-        let mut word: Vec<bool> = Vec::with_capacity(word_len);
-        for j in 0..word_len {
-            word.push(if i+j < n {elements[i+j]} else {false});
-        }
-        // println!("word = {}", word.to_01_string());
-        assert_eq!(word_len, word.len());
-        let word_compressed: Vec<bool> = dict_compress.get(&word).unwrap().clone();
-        // println!("word_compressed = {}", word_compressed.to_01_string());
-        vec_compressed.extend(word_compressed);
-    }
-    
-    let dict_decompress = dict_compress.invert();
-    HuffmanCompressed::from_vec_and_dict(vec_compressed, dict_decompress)
-}
-
-
-
 // /// bool means:
 // /// - true  -> white
 // /// - false -> black
@@ -427,6 +324,10 @@ impl<const N: usize> Array2dBool<N> {
         Array2dBool { elements: vec![fill_by; N] }
     }
 
+    pub fn from_vec(elements: Vec<bool>) -> Array2dBool<N> {
+        Array2dBool { elements }
+    }
+
     pub fn from_array(elements: [bool; N]) -> Array2dBool<N> {
         Array2dBool { elements: elements.to_vec() }
     }
@@ -436,8 +337,13 @@ impl<const N: usize> Array2dBool<N> {
     /// returns tuple of
     /// - compressed array
     /// - dict for decompression
-    pub fn compress(&self, word_len: usize) -> HuffmanCompressed {
-        compress_any_array(&self.elements, word_len)
+    pub fn compress_by_huffman(&self, word_len: usize) -> HuffmanCompressed {
+        HuffmanCompressed::compress_from_any_array(&self.elements, word_len)
+    }
+
+    /// TODO:
+    pub fn compress_by_sequence(&self) -> SequenceCompressed {
+        SequenceCompressed::compress_from_any_array(&self.elements)
     }
 
 }
@@ -473,6 +379,164 @@ impl<const N: usize> IndexMut<usize> for Array2dBool<N> {
 
 
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct HuffmanCompressed {
+    vec_compressed: VecCompressed,
+    dict_decompress: DictDecompress,
+}
+
+impl HuffmanCompressed {
+    pub fn new() -> HuffmanCompressed { HuffmanCompressed { vec_compressed: Vec::new(), dict_decompress: HashMap::new() } }
+
+    const fn from(vec_compressed: VecCompressed, dict_decompress: DictDecompress) -> HuffmanCompressed {
+        HuffmanCompressed { vec_compressed, dict_decompress }
+    }
+
+    pub fn compress_from_any_array<A>(elements: &A, word_len: usize) -> HuffmanCompressed
+    where A: Len + Index<usize, Output=bool> // this is any "array" type (Array or Vec)
+    {
+        let n: usize = elements.len();
+        let mut words_freq: HashMap<WordUncompressed, u32> = HashMap::new();
+
+        for i in (0..n).step_by(word_len) {
+            let mut word: Vec<bool> = Vec::with_capacity(word_len);
+            for j in 0..word_len {
+                word.push(if i+j < n {elements[i+j]} else {false});
+            }
+            // println!("word = {}", word.to_01_string());
+            assert_eq!(word_len, word.len());
+            words_freq.set_or_inc(word);
+        }
+        // println!("map = {:?}\n\n", words_freq);
+
+        let dict_compress: DictCompress = build_best_dictionary(words_freq.into_iter().collect());
+
+        let mut vec_compressed: VecCompressed = vec![];
+        for i in (0..n).step_by(word_len) {
+            let mut word: Vec<bool> = Vec::with_capacity(word_len);
+            for j in 0..word_len {
+                word.push(if i+j < n {elements[i+j]} else {false});
+            }
+            // println!("word = {}", word.to_01_string());
+            assert_eq!(word_len, word.len());
+            let word_compressed: Vec<bool> = dict_compress.get(&word).unwrap().clone();
+            // println!("word_compressed = {}", word_compressed.to_01_string());
+            vec_compressed.extend(word_compressed);
+        }
+
+        let dict_decompress = dict_compress.invert();
+        HuffmanCompressed::from(vec_compressed, dict_decompress)
+    }
+
+    pub fn decompress<const N: usize>(&self) -> Array2dBool<N> {
+        let vec_compressed = &self.vec_compressed;
+        let dict_decompress = &self.dict_decompress;
+        let mut vec_decompressed: Vec<bool> = Vec::with_capacity(N);
+        let mut word_compressed: WordCompressed = vec![];
+        for &bit in vec_compressed {
+            word_compressed.push(bit);
+            if dict_decompress.contains_key(&word_compressed) {
+                let word_uncompressed: WordUncompressed = dict_decompress.get(&word_compressed).unwrap().clone();
+                vec_decompressed.extend(word_uncompressed);
+                word_compressed = vec![];
+            }
+        }
+        assert_eq!(N, vec_decompressed.len());
+        // let mut res_array: Array2dBool<N> = Array2dBool::new(false);
+        // for i in 0..vec_decompressed.len() {
+        //     res_array.elements[i] = vec_decompressed[i];
+        // }
+        // res_array;
+        Array2dBool::from_vec(vec_decompressed)
+    }
+
+    // pub fn get_vec(self) -> VecCompressed { self.vec_compressed }
+    // pub fn get_dict(self) -> DictDecompress { self.dict_decompress }
+    /// get VecCompressed and DictDecompress
+    pub fn get_vec_and_dict(self) -> (VecCompressed, DictDecompress) { (self.vec_compressed, self.dict_decompress) }
+
+    pub fn calc_weight(&self) -> u64 {
+        // let mut res: u64 = 0;
+        // res += self.vec_compressed.len() as u64;
+        // for (key, value) in &self.dict_decompress {
+        //     res += key.len() as u64 + value.len() as u64 + 1;
+        // }
+        // res
+        self.vec_compressed.len() as u64 +
+            self.dict_decompress.iter()
+                .map(|(key, value)| key.len() as u64 + value.len() as u64 + 1)
+                .sum::<u64>()
+    }
+
+}
+
+
+
+type Sequence = Vec<u32>;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SequenceCompressed {
+    vec_compressed: Sequence,
+}
+
+impl SequenceCompressed {
+    pub const fn new() -> SequenceCompressed { SequenceCompressed { vec_compressed: Vec::new() } }
+
+    const fn from(vec_compressed: Sequence) -> SequenceCompressed {
+        SequenceCompressed { vec_compressed }
+    }
+
+    pub fn compress_from_any_array<A>(elements: &A) -> SequenceCompressed
+    where A: Len + Index<usize, Output=bool> // this is any "array" type (Array or Vec)
+    {
+        let mut vec_compressed: Sequence = Vec::new();
+        let mut same_in_row: u32 = 0;
+        let mut bit: bool = false;
+        // TODO
+        for i in 0..elements.len() {
+            // println!("i = {}, elements[i] = {}, bit = {}", i, elements[i], bit);
+            if elements[i] == bit {
+                // println!("EQ");
+                same_in_row += 1;
+            }
+            else {
+                // println!("NEQ");
+                vec_compressed.push(same_in_row);
+                same_in_row = 1;
+                bit = !bit;
+            }
+            // println!("vec_compressed = {:?}", vec_compressed);
+            // println!();
+        }
+        vec_compressed.push(same_in_row);
+        SequenceCompressed::from(vec_compressed)
+    }
+
+    pub fn decompress<const N: usize>(&self) -> Array2dBool<N> {
+        let mut vec_decompressed: Vec<bool> = Vec::with_capacity(N);
+        let mut bit: bool = false;
+        for i in self.vec_compressed.iter() {
+            vec_decompressed.extend(vec![bit; *i as usize]);
+            bit = !bit;
+        }
+        Array2dBool::from_vec(vec_decompressed)
+    }
+
+    /// get VecCompressed
+    pub fn get_vec(self) -> Sequence { self.vec_compressed }
+
+    pub fn calc_weight(&self) -> u64 {
+        self.vec_compressed.iter()
+            .map(|&it| it as u64)
+            // TODO: map 42 = 101010 -> 6
+            .map(|it| format!("{:b}", it).len() as u64 + 1)
+            .sum()
+    }
+
+}
+
+
+
 
 
 // const PATH_TO_IMAGE: &str = "../data/frames/f240.png";
@@ -483,12 +547,12 @@ pub fn path_to_nth_input_frame(n: usize) -> String {
         n if (1..10).contains(&n) => { format!("../data/frames/f00{}.png", n) }
         n if (10..100).contains(&n) => { format!("../data/frames/f0{}.png", n) }
         n if (100..=FRAMES_AMOUNT).contains(&n) => { format!("../data/frames/f{}.png", n) }
-        _ => { panic!() }
+        _ => { panic!("path_to_nth_input_frame: Bad `n`: {}", n) }
     }
 }
 
 pub fn load_frame<const N: usize>(i: usize) -> Array2dBool<N> {
-    let img = ImageReader::open(path_to_nth_input_frame(i)).unwrap().decode().unwrap();
+    let img = ImageReader::open(path_to_nth_input_frame(i+1)).unwrap().decode().unwrap();
 
     // assert image sizes
     {
@@ -539,46 +603,65 @@ pub fn load_frame<const N: usize>(i: usize) -> Array2dBool<N> {
     array2d
 }
 
-pub fn print_frame(i: usize) {
-    let pixels_bool: Frame = load_frame(i);
-    let mut pixels_01_string: String = String::with_capacity(0);
-    for i in 0..FRAME_WH {
-        if i % FRAME_W == 0 { pixels_01_string += "\n"; }
-        pixels_01_string += if pixels_bool[i] { "██" } else { "  " };
-        // pixels_01_string += " ";
+impl ToString for Frame {
+    fn to_string(&self) -> String {
+        const STRING_CAPACITY: usize = FRAME_WH*2 + FRAME_H + 1;
+        let mut res: String = String::with_capacity(STRING_CAPACITY);
+        for i in 0..FRAME_WH {
+            if i != 0 && i % FRAME_W == 0 { res += "\n"; }
+            // res += if self[i] { "1 " } else { "0 " };
+            // res += if self[i] { "██" } else { "  " };
+            res += if self[i] { "WW" } else { "  " };
+        }
+        res
     }
-    println!("{}", pixels_01_string);
 }
 
 pub fn show_video() {
     // all times here in seconds
-    const RENDER_TIME: f64 = 1.0 * 60.0 +  9.78;
+    const RENDER_TIME: f64 = 0.0 * 60.0 + 48.67;
     const VIDEO_TIME : f64 = 3.0 * 60.0 + 39.00;
-    // const FRAME_TIME : f64 = VIDEO_TIME / FRAMES_AMOUNT as f64;
-    const DELAY_TIME : f64 = (VIDEO_TIME - RENDER_TIME) / FRAMES_AMOUNT as f64;
+    const FRAME_DELAY_TIME: f64 = (VIDEO_TIME - RENDER_TIME) / FRAMES_AMOUNT as f64;
 
-    for i in 0..FRAMES_AMOUNT {
-        print_frame(i+1);
-        sleep(Duration::from_micros((1_000_000.0 * DELAY_TIME) as u64));
-    }
+    const FPS_DECREASE_K: usize = 1;
+
+    print!("\nLoading frames... "); flush();
+    let mut frames: Vec<Frame> = Vec::with_capacity(FRAMES_AMOUNT);
+    let time = measure_time(|| {
+        frames = (0..FRAMES_AMOUNT).map(load_frame).collect();
+    });
+    println!("Loaded in {:.2} s\n", time);
+
+    // this is needed for "clearing" screen
+    let new_lines: String = "\n".repeat(171);
+
+    let time = measure_time(|| {
+        for i in (0..FRAMES_AMOUNT).step_by(FPS_DECREASE_K) {
+            let frame = &frames[i];
+            // println!("{}", new_lines);
+            // println!("{}", frame.to_string());
+            print!("{}{}", new_lines, frame.to_string()); flush();
+            // TODO: try exactly clearing screen, not printing \n's
+            sleep(Duration::from_micros((FPS_DECREASE_K as f64 * 1_000_000.0 * FRAME_DELAY_TIME) as u64));
+        }
+    });
+    println!("Rendered video in {:.2} s", time);
 }
 
 
 
-/// FRAME_W * FRAME_H * FRAMES_AMOUNT =
-///   = 
+/// diffrent types of nested cycles of FRAME_W, FRAME_H, FRAMES_AMOUNT
 #[derive(Copy, Clone, Debug)]
 pub enum FramesOrganisation {
     HTW, HWT, THW, TWH, WHT, WTH
 }
 
-pub fn load_frames(frames_organisation: FramesOrganisation) -> Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> {
-    let mut pixels_all: Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> = Array2dBool::new(false);
-
+pub fn load_frames_as_array2d(frames_organisation: FramesOrganisation) -> Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> {
     const W: usize = FRAME_W;
     const H: usize = FRAME_H;
     const T: usize = FRAMES_AMOUNT;
-    let frames: Vec<Frame> = (0..T).map(|i| load_frame(i+1)).collect();
+    let frames: Vec<Frame> = (0..T).map(|i| load_frame(i)).collect();
+    let mut pixels_all: Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> = Array2dBool::new(false);
     match frames_organisation {
         FramesOrganisation::HTW => {
             for h in 0..H {
@@ -640,27 +723,24 @@ pub fn load_frames(frames_organisation: FramesOrganisation) -> Array2dBool<{FRAM
 
 
 
-pub fn compress_video_with_word_len(pixels: &Array2dBool<{FRAME_WH*FRAMES_AMOUNT}>, word_len: usize) -> HuffmanCompressed {
-    let mut weight_compressed: usize = 0;
-    let mut weight_uncompressed: usize = 0;
+pub fn compress_video_by_huffman_with_word_len(pixels: &Array2dBool<{FRAME_WH*FRAMES_AMOUNT}>, word_len: usize) -> HuffmanCompressed {
     let mut huffman_compressed: HuffmanCompressed = HuffmanCompressed::new();
     let time_spent = measure_time(|| {
-        weight_uncompressed = pixels.calc_weight();
-        huffman_compressed  = pixels.compress(word_len);
-        weight_compressed   = huffman_compressed.calc_weight();
+        huffman_compressed = pixels.compress_by_huffman(word_len);
     });
+    let weight_uncompressed: u64 = pixels.calc_weight() as u64;
+    let weight_compressed  : u64 = huffman_compressed.calc_weight();
     // println!("uncompressed weight = {}", weight_uncompressed);
     // println!("compressed   weight = {}", weight_compressed);
     // println!("ratio = {}", weight_uncompressed as f64 / weight_compressed as f64);
     println!("word_len = {}\tratio = {:.2}\ttime_spent = {:.3} s", word_len,
-        // (weight_uncompressed as u64).div_with_n_digits_after_decimal_point(weight_compressed as u64, 2),
         weight_uncompressed as f64 / weight_compressed as f64,
         time_spent
     );
     huffman_compressed
 }
 
-pub fn compress_video() {
+pub fn compress_video_by_huffman() {
     // GCD(480, 360) = 10, 20, 30, 40, 60, 120
     let word_lens: Vec<usize> = vec![
         10, 20, 30, 40, 50, 60, 80, 100, 120,
@@ -687,23 +767,58 @@ pub fn compress_video() {
     print!("\nLoading frames... "); flush();
     let mut pixels: Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> = Array2dBool::new(false);
     let time = measure_time(|| {
-        pixels = load_frames(frames_organisation);
+        pixels = load_frames_as_array2d(frames_organisation);
     });
     println!("Loaded in {:.2} s\n", time);
 
     // compress video
     for word_len in word_lens {
-        compress_video_with_word_len(&pixels, word_len);
+        compress_video_by_huffman_with_word_len(&pixels, word_len);
         // println!();
     }
 }
 
 
 
+pub fn compress_by_sequence() {
+    let frames_organisations = [
+        FramesOrganisation::HTW, FramesOrganisation::HWT,
+        FramesOrganisation::THW, FramesOrganisation::TWH,
+        FramesOrganisation::WHT, FramesOrganisation::WTH,
+    ];
+    for frames_organisation in frames_organisations {
+        println!("frames_organisation = {:?}", frames_organisation);
+        print!("Loading frames... "); flush();
+        let mut pixels: Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> = Array2dBool::new(false);
+        let time = measure_time(|| {
+            pixels = load_frames_as_array2d(frames_organisation);
+        });
+        println!("Loaded in {:.2} s", time);
+
+        // compress video
+        let mut sequence_compressed: SequenceCompressed = SequenceCompressed::new();
+        let time_spent = measure_time(|| {
+            sequence_compressed = pixels.compress_by_sequence();
+        });
+        let weight_uncompressed: u64 = pixels.calc_weight() as u64;
+        let weight_compressed  : u64 = sequence_compressed.calc_weight();
+        println!("ratio = {:.2}\ttime_spent = {:.3} s",
+            weight_uncompressed as f64 / weight_compressed as f64,
+            time_spent
+        );
+        println!();
+    }
+}
+
+
+
 fn main() {
-    println!("FRAMES_AMOUNT = {}", FRAMES_AMOUNT);
+    // println!("FRAMES_AMOUNT = {}", FRAMES_AMOUNT);
+
     // show_video();
-    compress_video();
+
+    // compress_video_by_huffman();
+    compress_by_sequence();
 
     // let mut x: i32;
     // let mut f = || {
@@ -719,32 +834,29 @@ fn main() {
 
 
 
-#[allow(unused)]
-fn ua_to_ba<const N: usize>(array_u32: [u32; N]) -> [bool; N] {
-    array_u32.map(|it| match it {
-        0 => { false }
-        1 => { true }
-        _ => { panic!() }
-    })
-}
-
-#[allow(unused)]
-fn ua_to_bv<const N: usize>(array_u32: [u32; N]) -> Vec<bool> {
-    array_u32.map(|it| match it {
-        0 => { false }
-        1 => { true }
-        _ => { panic!() }
-    }).to_vec()
-}
-
-
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+
+    fn ua_to_ba<const N: usize>(array_u32: [u32; N]) -> [bool; N] {
+        array_u32.map(|it| match it {
+            0 => { false }
+            1 => { true }
+            _ => { panic!() }
+        })
+    }
+
+    fn ua_to_bv<const N: usize>(array_u32: [u32; N]) -> Vec<bool> {
+        array_u32.map(|it| match it {
+            0 => { false }
+            1 => { true }
+            _ => { panic!() }
+        }).to_vec()
+    }
 
     mod build_best_dictionary {
-        use super::*;
+        use std::collections::HashMap;
+        use crate::{build_best_dictionary, WordCompressed};
+        use crate::tests::ua_to_bv;
 
         #[test]
         fn dict_size_0() {
@@ -891,18 +1003,18 @@ mod tests {
 
 
 
-    mod compress_decompress {
-
+    mod compress_decompress_by_huffman {
         mod array_size_10 {
             mod word_len_1 {
                 use std::collections::HashMap;
-                use crate::{Array2dBool, ua_to_bv};
+                use crate::{Array2dBool, HuffmanCompressed};
+                use crate::tests::ua_to_bv;
                 #[test]
                 fn elements_false() {
                     const N: usize = 10;
                     const WORD_LEN: usize = 1;
                     let array: Array2dBool<N> = Array2dBool::new(false);
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     let (vec_compressed, dict_decompress) = huffman_compressed.get_vec_and_dict();
                     assert_eq!(ua_to_bv([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), vec_compressed);
@@ -914,7 +1026,7 @@ mod tests {
                     const N: usize = 10;
                     const WORD_LEN: usize = 1;
                     let array: Array2dBool<N> = Array2dBool::new(true);
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     let (vec_compressed, dict_decompress) = huffman_compressed.get_vec_and_dict();
                     assert_eq!(ua_to_bv([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), vec_compressed);
@@ -925,13 +1037,14 @@ mod tests {
 
             mod word_len_2 {
                 use std::collections::HashMap;
-                use crate::{Array2dBool, ua_to_ba, ua_to_bv};
+                use crate::{Array2dBool, HuffmanCompressed};
+                use crate::tests::{ua_to_ba, ua_to_bv};
                 #[test]
                 fn elements_false_false() {
                     const N: usize = 10;
                     const WORD_LEN: usize = 2;
                     let array: Array2dBool<N> = Array2dBool::new(false);
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     let (vec_compressed, dict_decompress) = huffman_compressed.get_vec_and_dict();
                     assert_eq!(ua_to_bv([0, 0, 0, 0, 0]), vec_compressed);
@@ -943,7 +1056,7 @@ mod tests {
                     const N: usize = 10;
                     const WORD_LEN: usize = 2;
                     let array: Array2dBool<N> = Array2dBool::from_array(ua_to_ba([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]));
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     let (vec_compressed, dict_decompress) = huffman_compressed.get_vec_and_dict();
                     assert_eq!(ua_to_bv([0, 0, 0, 0, 0]), vec_compressed);
@@ -956,13 +1069,14 @@ mod tests {
         mod array_size_12 {
             mod word_len_3 {
                 use std::collections::HashMap;
-                use crate::{Array2dBool, ua_to_ba, ua_to_bv};
+                use crate::{Array2dBool, HuffmanCompressed};
+                use crate::tests::{ua_to_ba, ua_to_bv};
                 #[test]
                 fn elements_false_false_false() {
                     const N: usize = 12;
                     const WORD_LEN: usize = 3;
                     let array: Array2dBool<N> = Array2dBool::new(false);
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     let (vec_compressed, dict_decompress) = huffman_compressed.get_vec_and_dict();
                     assert_eq!(ua_to_bv([0, 0, 0, 0]), vec_compressed);
@@ -974,7 +1088,7 @@ mod tests {
                     const N: usize = 12;
                     const WORD_LEN: usize = 3;
                     let array: Array2dBool<N> = Array2dBool::from_array(ua_to_ba([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]));
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     let (vec_compressed, dict_decompress) = huffman_compressed.get_vec_and_dict();
                     assert_eq!(ua_to_bv([0, 0, 0, 0]), vec_compressed);
@@ -986,7 +1100,7 @@ mod tests {
                     const N: usize = 12;
                     const WORD_LEN: usize = 3;
                     let array: Array2dBool<N> = Array2dBool::from_array(ua_to_ba([0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1]));
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     let (vec_compressed, dict_decompress) = huffman_compressed.get_vec_and_dict();
                     assert_eq!(ua_to_bv([0, 0, 0, 0]), vec_compressed);
@@ -998,7 +1112,7 @@ mod tests {
                     const N: usize = 12;
                     const WORD_LEN: usize = 3;
                     let array: Array2dBool<N> = Array2dBool::from_array(ua_to_ba([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]));
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     let (vec_compressed, dict_decompress) = huffman_compressed.get_vec_and_dict();
                     assert_eq!(ua_to_bv([0, 0, 0, 0]), vec_compressed);
@@ -1010,7 +1124,7 @@ mod tests {
                     const N: usize = 12;
                     const WORD_LEN: usize = 3;
                     let array: Array2dBool<N> = Array2dBool::from_array(ua_to_ba([0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1]));
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     let (vec_compressed, dict_decompress) = huffman_compressed.get_vec_and_dict();
                     assert!(
@@ -1028,7 +1142,8 @@ mod tests {
 
         mod array_size_100 {
             mod word_len_5 {
-                use crate::{Array2dBool, ua_to_ba};
+                use crate::{Array2dBool, HuffmanCompressed};
+                use crate::tests::ua_to_ba;
                 #[test]
                 fn elements_random() {
                     const N: usize = 100;
@@ -1045,7 +1160,7 @@ mod tests {
                         1, 0, 0, 1, 1, 0, 0, 0, 1, 1,
                         0, 0, 1, 0, 0, 1, 1, 1, 0, 0,
                     ]));
-                    let huffman_compressed = array.clone().compress(WORD_LEN);
+                    let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
                     println!("calc_weight = {}", huffman_compressed.calc_weight());
                     // assert_eq!(bafuv([]), vec_compressed);
@@ -1056,6 +1171,85 @@ mod tests {
             }
         }
 
+    }
+
+
+
+    mod compress_decompress_by_sequence {
+        use crate::{Array2dBool, SequenceCompressed};
+        use crate::tests::ua_to_ba;
+        #[test]
+        fn elements_false() {
+            const N: usize = 10;
+            let array: Array2dBool<N> = Array2dBool::new(false);
+            let sequence_compressed: SequenceCompressed = array.clone().compress_by_sequence();
+            let array_compressed_decompressed: Array2dBool<N> = sequence_compressed.decompress();
+            let vec_compressed = sequence_compressed.get_vec();
+            assert_eq!(vec![10], vec_compressed);
+            assert_eq!(array, array_compressed_decompressed);
+        }
+        #[test]
+        fn elements_true() {
+            const N: usize = 10;
+            let array: Array2dBool<N> = Array2dBool::new(true);
+            let sequence_compressed: SequenceCompressed = array.clone().compress_by_sequence();
+            let array_compressed_decompressed: Array2dBool<N> = sequence_compressed.decompress();
+            let vec_compressed = sequence_compressed.get_vec();
+            assert_eq!(vec![0, 10], vec_compressed);
+            assert_eq!(array, array_compressed_decompressed);
+        }
+        #[test]
+        fn elements_false_true() {
+            const N: usize = 10;
+            let array: Array2dBool<N> = Array2dBool::from_array(ua_to_ba([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]));
+            let sequence_compressed: SequenceCompressed = array.clone().compress_by_sequence();
+            let array_compressed_decompressed: Array2dBool<N> = sequence_compressed.decompress();
+            let vec_compressed = sequence_compressed.get_vec();
+            assert_eq!(vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1], vec_compressed);
+            assert_eq!(array, array_compressed_decompressed);
+        }
+        #[test]
+        fn elements_true_false() {
+            const N: usize = 10;
+            let array: Array2dBool<N> = Array2dBool::from_array(ua_to_ba([1, 0, 1, 0, 1, 0, 1, 0, 1, 0]));
+            let sequence_compressed: SequenceCompressed = array.clone().compress_by_sequence();
+            let array_compressed_decompressed: Array2dBool<N> = sequence_compressed.decompress();
+            let vec_compressed = sequence_compressed.get_vec();
+            assert_eq!(vec![0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], vec_compressed);
+            assert_eq!(array, array_compressed_decompressed);
+        }
+        #[test]
+        fn elements_4_3_2_4_1() {
+            const N: usize = 14;
+            let array: Array2dBool<N> = Array2dBool::from_array(ua_to_ba([
+                0, 0, 0, 0,
+                1, 1, 1,
+                0, 0,
+                1, 1, 1, 1,
+                0,
+            ]));
+            let sequence_compressed: SequenceCompressed = array.clone().compress_by_sequence();
+            let array_compressed_decompressed: Array2dBool<N> = sequence_compressed.decompress();
+            let vec_compressed = sequence_compressed.get_vec();
+            assert_eq!(vec![4, 3, 2, 4, 1], vec_compressed);
+            assert_eq!(array, array_compressed_decompressed);
+        }
+        #[test]
+        fn elements_0_4_3_2_4_1() {
+            const N: usize = 14;
+            let array: Array2dBool<N> = Array2dBool::from_array(ua_to_ba([
+                1, 1, 1, 1,
+                0, 0, 0,
+                1, 1,
+                0, 0, 0, 0,
+                1,
+            ]));
+            let sequence_compressed: SequenceCompressed = array.clone().compress_by_sequence();
+            let array_compressed_decompressed: Array2dBool<N> = sequence_compressed.decompress();
+            let vec_compressed = sequence_compressed.get_vec();
+            assert_eq!(vec![0, 4, 3, 2, 4, 1], vec_compressed);
+            assert_eq!(array, array_compressed_decompressed);
+        }
     }
 
 
