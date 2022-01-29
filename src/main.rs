@@ -117,10 +117,10 @@ impl<T: Clone> VecExtensionAdd<T> for Vec<T> {
     }
 }
 
-pub trait VecExtensionSort<T> {
+pub trait VecExtensionSorted<T> {
     fn sorted(&self) -> Vec<T>;
 }
-impl<T: Clone + Ord> VecExtensionSort<T> for Vec<T> {
+impl<T: Clone + Ord> VecExtensionSorted<T> for Vec<T> {
     fn sorted(&self) -> Vec<T> {
         let mut res: Vec<T> = self.clone();
         res.sort();
