@@ -1,7 +1,10 @@
 //! Bad Apple!!
+//!
+//! crop video to frames command:
+//! `ffmpeg -i bad_apple.mp4 -qscale:v 1 f%04d.png`
 
 // #![feature(adt_const_params)]
-#![feature(generic_const_exprs)]
+// #![feature(generic_const_exprs)]
 
 
 
@@ -18,12 +21,15 @@ use image::{Rgb, RgbImage};
 
 
 
-const FRAME_W: usize = 480;
-const FRAME_H: usize = 360;
+const FRAME_H: usize = 20;
+const FRAME_W: usize = FRAME_H * FRAME_W_MAX / FRAME_H_MAX;
+
+const FRAME_W_MAX: usize = 480;
+const FRAME_H_MAX: usize = 360;
+
 const FRAME_WH: usize = FRAME_W * FRAME_H;
 
 const FRAMES_AMOUNT: usize = 6572;
-// const FRAMES_AMOUNT: usize = 3000;
 
 // const PIXELS_AMOUNT: usize = FRAME_WH * FRAMES_AMOUNT;
 
@@ -544,22 +550,24 @@ const COLOR_THRESHOLD: u8 = 127;
 
 pub fn path_to_nth_input_frame(n: usize) -> String {
     match n {
-        n if (1..10).contains(&n) => { format!("../data/frames/f00{}.png", n) }
-        n if (10..100).contains(&n) => { format!("../data/frames/f0{}.png", n) }
-        n if (100..=FRAMES_AMOUNT).contains(&n) => { format!("../data/frames/f{}.png", n) }
+        n if (1..10).contains(&n) => { format!("../data/frames/f000{}.png", n) }
+        n if (10..100).contains(&n) => { format!("../data/frames/f00{}.png", n) }
+        n if (100..1000).contains(&n) => { format!("../data/frames/f0{}.png", n) }
+        n if (1000..=FRAMES_AMOUNT).contains(&n) => { format!("../data/frames/f{}.png", n) }
         _ => { panic!("path_to_nth_input_frame: Bad `n`: {}", n) }
     }
 }
 
 pub fn load_frame<const N: usize>(i: usize) -> Array2dBool<N> {
+    println!("loading frame {} / {}", i, FRAMES_AMOUNT);
     let img = ImageReader::open(path_to_nth_input_frame(i+1)).unwrap().decode().unwrap();
 
     // assert image sizes
     {
         let (image_w, image_h) = img.as_rgb8().unwrap().dimensions();
         let (image_w, image_h) = (image_w as usize, image_h as usize);
-        assert_eq!(FRAME_W, image_w);
-        assert_eq!(FRAME_H, image_h);
+        assert_eq!(FRAME_W_MAX, image_w);
+        assert_eq!(FRAME_H_MAX, image_h);
     }
 
     // create pixels_rgb array
@@ -571,17 +579,20 @@ pub fn load_frame<const N: usize>(i: usize) -> Array2dBool<N> {
     let img_rgb: &RgbImage = img.as_rgb8().unwrap();
     for w in 0..FRAME_W {
         for h in 0..FRAME_H {
-            pixels_rgb[w].push(*img_rgb.get_pixel(w as u32, h as u32));
+            pixels_rgb[w].push(*img_rgb.get_pixel(
+                (w * FRAME_W_MAX / FRAME_W) as u32,
+                (h * FRAME_H_MAX / FRAME_H) as u32
+            ));
         }
     }
     // assert pixels_rgb
     assert_eq!(FRAME_W, pixels_rgb.len());
-    assert!(pixels_rgb.iter().all(|it| FRAME_H == it.len()));
+    assert!(pixels_rgb.iter().all(|it| it.len() == FRAME_H));
     assert_eq!(FRAME_WH, pixels_rgb.iter().fold(0, |acc, el| acc + el.len()));
 
     let pixels_bool_2d: Vec<Vec<bool>> = pixels_rgb.into_iter().map(|col: Vec<Rgb<u8>>|
         col.iter().map(|it: &Rgb<u8>|
-            if it[0] > COLOR_THRESHOLD || it[1] > COLOR_THRESHOLD || it[2] > COLOR_THRESHOLD { true } else { false }
+            (it[0] > COLOR_THRESHOLD || it[1] > COLOR_THRESHOLD || it[2] > COLOR_THRESHOLD)
         ).collect()
     ).collect();
 
@@ -611,7 +622,7 @@ impl ToString for Frame {
             if i != 0 && i % FRAME_W == 0 { res += "\n"; }
             // res += if self[i] { "1 " } else { "0 " };
             // res += if self[i] { "██" } else { "  " };
-            res += if self[i] { "WW" } else { "  " };
+            res += if self[i] { "@@" } else { "  " };
         }
         res
     }
@@ -622,6 +633,7 @@ pub fn show_video() {
     const RENDER_TIME: f64 = 0.0 * 60.0 + 48.67;
     const VIDEO_TIME : f64 = 3.0 * 60.0 + 39.00;
     const FRAME_DELAY_TIME: f64 = (VIDEO_TIME - RENDER_TIME) / FRAMES_AMOUNT as f64;
+    // const FRAME_DELAY_TIME: f64 = 0.1;
 
     const FPS_DECREASE_K: usize = 1;
 
@@ -815,10 +827,10 @@ pub fn compress_by_sequence() {
 fn main() {
     // println!("FRAMES_AMOUNT = {}", FRAMES_AMOUNT);
 
-    // show_video();
+    show_video();
 
     // compress_video_by_huffman();
-    compress_by_sequence();
+    // compress_by_sequence();
 
     // let mut x: i32;
     // let mut f = || {
