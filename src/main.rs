@@ -645,7 +645,7 @@ pub fn show_video() {
     println!("Loaded in {:.2} s\n", time);
 
     // this is needed for "clearing" screen
-    let new_lines: String = "\n".repeat(171);
+    let new_lines: String = "\n".repeat(100);
 
     let time = measure_time(|| {
         for i in (0..FRAMES_AMOUNT).step_by(FPS_DECREASE_K) {
