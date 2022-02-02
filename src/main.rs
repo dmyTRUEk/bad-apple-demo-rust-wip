@@ -169,7 +169,7 @@ pub fn flush() {
 /// let time = measure_time(|| {
 ///     sleep(Duration::from_secs(4));
 /// });
-/// println!("time = {:.3}", time);
+/// println!("time = {time:.3}");
 pub fn measure_time(mut f: impl FnMut()) -> f64 {
     let start = Instant::now();
     f();
@@ -185,7 +185,7 @@ pub fn build_best_dictionary<T>(words_freq: Vec<(T, u32)>) -> HashMap<T, WordCom
 where T : Clone + Debug + Eq + Hash
 {
     // println!("CALL");
-    // println!("words_freq.len() = {}", words_freq.len());
+    // println!("words_freq.len() = {words_freq_len}", words_freq_len = words_freq.len());
     assert!(words_freq.iter().all(|(_, v)| v > &0));
     let words_freq_best = match words_freq.len() {
         0 => { HashMap::new() }
@@ -218,13 +218,13 @@ where T : Clone + Debug + Eq + Hash
                     words_freq_r.push((key, value));
                 }
             }
-            // println!("words_freq_l = {:?}", words_freq_l);
-            // println!("words_freq_r = {:?}", words_freq_r);
+            // println!("words_freq_l = {words_freq_l:?}");
+            // println!("words_freq_r = {words_freq_r:?}");
 
             let words_freq_l_best: HashMap<T, WordCompressed> = build_best_dictionary(words_freq_l);
             let words_freq_r_best: HashMap<T, WordCompressed> = build_best_dictionary(words_freq_r);
-            // println!("words_freq_l_best = {:?}", words_freq_l_best);
-            // println!("words_freq_r_best = {:?}", words_freq_r_best);
+            // println!("words_freq_l_best = {words_freq_l_best:?}");
+            // println!("words_freq_r_best = {words_freq_r_best:?}");
 
             // println!("joining...");
             let mut words_freq_best: HashMap<T, WordCompressed> = HashMap::new();
@@ -247,12 +247,12 @@ where T : Clone + Debug + Eq + Hash
                     words_freq_best.insert(key.clone(), vec![true].add(value.clone()));
                 }
             }
-            // println!("joined: {:?}\n", words_freq_best);
+            // println!("joined: {words_freq_best:?}\n");
 
             words_freq_best
         }
     };
-    // println!("returning: {:?}", words_freq_best);
+    // println!("returning: {words_freq_best:?}");
     words_freq_best
 }
 
@@ -344,12 +344,12 @@ impl<const N: usize> Array2dBool<N> {
     /// - compressed array
     /// - dict for decompression
     pub fn compress_by_huffman(&self, word_len: usize) -> HuffmanCompressed {
-        HuffmanCompressed::compress_from_any_array(&self.elements, word_len)
+        HuffmanCompressed::compress_from(&self.elements, word_len)
     }
 
     /// TODO:
     pub fn compress_by_sequence(&self) -> SequenceCompressed {
-        SequenceCompressed::compress_from_any_array(&self.elements)
+        SequenceCompressed::compress_from(&self.elements)
     }
 
 }
@@ -398,7 +398,7 @@ impl HuffmanCompressed {
         HuffmanCompressed { vec_compressed, dict_decompress }
     }
 
-    pub fn compress_from_any_array<A>(elements: &A, word_len: usize) -> HuffmanCompressed
+    pub fn compress_from<A>(elements: &A, word_len: usize) -> HuffmanCompressed
     where A: Len + Index<usize, Output=bool> // this is any "array" type (Array or Vec)
     {
         let n: usize = elements.len();
@@ -409,11 +409,11 @@ impl HuffmanCompressed {
             for j in 0..word_len {
                 word.push(if i+j < n {elements[i+j]} else {false});
             }
-            // println!("word = {}", word.to_01_string());
+            // println!("word = {word}", word = word.to_01_string());
             assert_eq!(word_len, word.len());
             words_freq.set_or_inc(word);
         }
-        // println!("map = {:?}\n\n", words_freq);
+        // println!("map = {words_freq:?}\n\n");
 
         let dict_compress: DictCompress = build_best_dictionary(words_freq.into_iter().collect());
 
@@ -423,10 +423,10 @@ impl HuffmanCompressed {
             for j in 0..word_len {
                 word.push(if i+j < n {elements[i+j]} else {false});
             }
-            // println!("word = {}", word.to_01_string());
+            // println!("word = {word}", word = word.to_01_string()));
             assert_eq!(word_len, word.len());
             let word_compressed: Vec<bool> = dict_compress.get(&word).unwrap().clone();
-            // println!("word_compressed = {}", word_compressed.to_01_string());
+            // println!("word_compressed = {word_compressed}", word_compressed = word_compressed.to_01_string()));
             vec_compressed.extend(word_compressed);
         }
 
@@ -492,7 +492,7 @@ impl SequenceCompressed {
         SequenceCompressed { vec_compressed }
     }
 
-    pub fn compress_from_any_array<A>(elements: &A) -> SequenceCompressed
+    pub fn compress_from<A>(elements: &A) -> SequenceCompressed
     where A: Len + Index<usize, Output=bool> // this is any "array" type (Array or Vec)
     {
         let mut vec_compressed: Sequence = Vec::new();
@@ -500,7 +500,7 @@ impl SequenceCompressed {
         let mut bit: bool = false;
         // TODO
         for i in 0..elements.len() {
-            // println!("i = {}, elements[i] = {}, bit = {}", i, elements[i], bit);
+            // println!("i = {i}, elements[i] = {element_i}, bit = {bit}", element_i = elements[i]);
             if elements[i] == bit {
                 // println!("EQ");
                 same_in_row += 1;
@@ -511,8 +511,7 @@ impl SequenceCompressed {
                 same_in_row = 1;
                 bit = !bit;
             }
-            // println!("vec_compressed = {:?}", vec_compressed);
-            // println!();
+            // println!("vec_compressed = {vec_compressed:?}\n");
         }
         vec_compressed.push(same_in_row);
         SequenceCompressed::from(vec_compressed)
@@ -558,8 +557,12 @@ pub fn path_to_nth_input_frame(n: usize) -> String {
     }
 }
 
+pub fn load_frames() -> Vec<Frame> {
+    (0..FRAMES_AMOUNT).map(load_frame).collect()
+}
+
 pub fn load_frame<const N: usize>(i: usize) -> Array2dBool<N> {
-    println!("loading frame {} / {}", i, FRAMES_AMOUNT);
+    // println!("loading frame {i} / {FRAMES_AMOUNT}");
     let img = ImageReader::open(path_to_nth_input_frame(i+1)).unwrap().decode().unwrap();
 
     // assert image sizes
@@ -642,7 +645,7 @@ pub fn show_video() {
     let time = measure_time(|| {
         frames = (0..FRAMES_AMOUNT).map(load_frame).collect();
     });
-    println!("Loaded in {:.2} s\n", time);
+    println!("Loaded in {time:.2} s\n");
 
     // this is needed for "clearing" screen
     let new_lines: String = "\n".repeat(100);
@@ -650,81 +653,78 @@ pub fn show_video() {
     let time = measure_time(|| {
         for i in (0..FRAMES_AMOUNT).step_by(FPS_DECREASE_K) {
             let frame = &frames[i];
-            // println!("{}", new_lines);
-            // println!("{}", frame.to_string());
-            print!("{}{}", new_lines, frame.to_string()); flush();
+            print!("{new_lines}{frame}", frame = frame.to_string()); flush();
             // TODO: try exactly clearing screen, not printing \n's
             sleep(Duration::from_micros((FPS_DECREASE_K as f64 * 1_000_000.0 * FRAME_DELAY_TIME) as u64));
         }
     });
-    println!("Rendered video in {:.2} s", time);
+    println!("Rendered video in {time:.2} s");
 }
 
 
 
-/// diffrent types of nested cycles of FRAME_W, FRAME_H, FRAMES_AMOUNT
+/// diffrent types of nested cycles of FRAME_W, FRAME_H, FRAMES_AMOUNT (N)
 #[derive(Copy, Clone, Debug)]
 pub enum FramesOrganisation {
-    HTW, HWT, THW, TWH, WHT, WTH
+    HNW, HWN, NHW, NWH, WHN, WNH
 }
 
-pub fn load_frames_as_array2d(frames_organisation: FramesOrganisation) -> Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> {
+pub fn frames_to_array2d(frames: Vec<Frame>, frames_organisation: FramesOrganisation) -> Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> {
     const W: usize = FRAME_W;
     const H: usize = FRAME_H;
-    const T: usize = FRAMES_AMOUNT;
-    let frames: Vec<Frame> = (0..T).map(|i| load_frame(i)).collect();
+    const N: usize = FRAMES_AMOUNT;
     let mut pixels_all: Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> = Array2dBool::new(false);
     match frames_organisation {
-        FramesOrganisation::HTW => {
+        FramesOrganisation::HNW => {
             for h in 0..H {
                 for w in 0..W {
-                    for t in 0..T {
-                        pixels_all[h*W*T + t*W + w] = frames[t][w + h*W];
+                    for n in 0..N {
+                        pixels_all[h*W*N + n*W + w] = frames[n][w + h*W];
                     }
                 }
             }
         }
-        FramesOrganisation::HWT => {
+        FramesOrganisation::HWN => {
             for h in 0..H {
                 for w in 0..W {
-                    for t in 0..T {
-                        pixels_all[h*W*T + w*T + t] = frames[t][w + h*W];
+                    for n in 0..N {
+                        pixels_all[h*W*N + w*N + n] = frames[n][w + h*W];
                     }
                 }
             }
         }
-        FramesOrganisation::THW => {
+        FramesOrganisation::NHW => {
             for h in 0..H {
                 for w in 0..W {
-                    for t in 0..T {
-                        pixels_all[t*W*H + h*W + w] = frames[t][w + h*W];
+                    for n in 0..N {
+                        pixels_all[n*W*H + h*W + w] = frames[n][w + h*W];
                     }
                 }
             }
         }
-        FramesOrganisation::TWH => {
+        FramesOrganisation::NWH => {
             for h in 0..H {
                 for w in 0..W {
-                    for t in 0..T {
-                        pixels_all[t*W*H + w*H + h] = frames[t][w + h*W];
+                    for n in 0..N {
+                        pixels_all[n*W*H + w*H + h] = frames[n][w + h*W];
                     }
                 }
             }
         }
-        FramesOrganisation::WHT => {
+        FramesOrganisation::WHN => {
             for h in 0..H {
                 for w in 0..W {
-                    for t in 0..T {
-                        pixels_all[w*H*T + h*T + t] = frames[t][w + h*W];
+                    for n in 0..N {
+                        pixels_all[w*H*N + h*N + n] = frames[n][w + h*W];
                     }
                 }
             }
         }
-        FramesOrganisation::WTH => {
+        FramesOrganisation::WNH => {
             for h in 0..H {
                 for w in 0..W {
-                    for t in 0..T {
-                        pixels_all[w*H*T + t*H + h] = frames[t][w + h*W];
+                    for n in 0..N {
+                        pixels_all[w*H*N + n*H + h] = frames[n][w + h*W];
                     }
                 }
             }
@@ -742,13 +742,11 @@ pub fn compress_video_by_huffman_with_word_len(pixels: &Array2dBool<{FRAME_WH*FR
     });
     let weight_uncompressed: u64 = pixels.calc_weight() as u64;
     let weight_compressed  : u64 = huffman_compressed.calc_weight();
-    // println!("uncompressed weight = {}", weight_uncompressed);
-    // println!("compressed   weight = {}", weight_compressed);
-    // println!("ratio = {}", weight_uncompressed as f64 / weight_compressed as f64);
-    println!("word_len = {}\tratio = {:.2}\ttime_spent = {:.3} s", word_len,
-        weight_uncompressed as f64 / weight_compressed as f64,
-        time_spent
-    );
+    let ratio: f64 = weight_uncompressed as f64 / weight_compressed as f64;
+    // println!("uncompressed weight = {weight_uncompressed}");
+    // println!("compressed   weight = {weight_compressed}");
+    // println!("ratio = {ratio}");
+    println!("word_len = {word_len}\tratio = {ratio}\ttime_spent = {time_spent:.3} s");
     huffman_compressed
 }
 
@@ -767,21 +765,22 @@ pub fn compress_video_by_huffman() {
         ].iter().map(|it| it * FRAMES_AMOUNT).collect::<Vec<usize>>()
     ).sorted();
 
-    // HTW, HWT, THW, TWH, WHT, WTH
-    // let frames_organisation: FramesOrganisation = FramesOrganisation::HTW;
-    // let frames_organisation: FramesOrganisation = FramesOrganisation::HWT;
-    // let frames_organisation: FramesOrganisation = FramesOrganisation::THW;
-    // let frames_organisation: FramesOrganisation = FramesOrganisation::TWH;
-    // let frames_organisation: FramesOrganisation = FramesOrganisation::WHT;
-    let frames_organisation: FramesOrganisation = FramesOrganisation::WTH;
-    println!("frames_organisation = {:?}", frames_organisation);
+    // HNW, HWN, NHW, NWH, WHN, WNH
+    // let frames_organisation: FramesOrganisation = FramesOrganisation::HNW;
+    // let frames_organisation: FramesOrganisation = FramesOrganisation::HWN;
+    // let frames_organisation: FramesOrganisation = FramesOrganisation::NHW;
+    // let frames_organisation: FramesOrganisation = FramesOrganisation::NWH;
+    // let frames_organisation: FramesOrganisation = FramesOrganisation::WHN;
+    let frames_organisation: FramesOrganisation = FramesOrganisation::WNH;
+    println!("frames_organisation = {frames_organisation:?}");
 
     print!("\nLoading frames... "); flush();
     let mut pixels: Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> = Array2dBool::new(false);
     let time = measure_time(|| {
-        pixels = load_frames_as_array2d(frames_organisation);
+        let frames = load_frames();
+        pixels = frames_to_array2d(frames, frames_organisation);
     });
-    println!("Loaded in {:.2} s\n", time);
+    println!("Loaded in {time:.2} s\n");
 
     // compress video
     for word_len in word_lens {
@@ -794,50 +793,51 @@ pub fn compress_video_by_huffman() {
 
 pub fn compress_by_sequence() {
     let frames_organisations = [
-        FramesOrganisation::HTW, FramesOrganisation::HWT,
-        FramesOrganisation::THW, FramesOrganisation::TWH,
-        FramesOrganisation::WHT, FramesOrganisation::WTH,
+        FramesOrganisation::HNW, FramesOrganisation::HWN,
+        FramesOrganisation::NHW, FramesOrganisation::NWH,
+        FramesOrganisation::WHN, FramesOrganisation::WNH,
     ];
+
+    print!("Loading frames... "); flush();
+    let mut frames: Vec<Frame> = Vec::new();
+    let time = measure_time(|| {
+        frames = load_frames();
+    });
+    println!("Loaded in {time:.2} s\n");
+
     for frames_organisation in frames_organisations {
-        println!("frames_organisation = {:?}", frames_organisation);
-        print!("Loading frames... "); flush();
-        let mut pixels: Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> = Array2dBool::new(false);
-        let time = measure_time(|| {
-            pixels = load_frames_as_array2d(frames_organisation);
-        });
-        println!("Loaded in {:.2} s", time);
+        println!("frames_organisation = {frames_organisation:?}");
 
         // compress video
         let mut sequence_compressed: SequenceCompressed = SequenceCompressed::new();
+        let mut pixels: Array2dBool<{FRAME_WH*FRAMES_AMOUNT}> = Array2dBool::new(false);
         let time_spent = measure_time(|| {
+            pixels = frames_to_array2d(frames.clone(), frames_organisation);
             sequence_compressed = pixels.compress_by_sequence();
         });
         let weight_uncompressed: u64 = pixels.calc_weight() as u64;
         let weight_compressed  : u64 = sequence_compressed.calc_weight();
-        println!("ratio = {:.2}\ttime_spent = {:.3} s",
-            weight_uncompressed as f64 / weight_compressed as f64,
-            time_spent
-        );
-        println!();
+        let ratio: f64 = weight_uncompressed as f64 / weight_compressed as f64;
+        println!("ratio = {ratio:.2}\ttime_spent = {time_spent:.3} s\n");
     }
 }
 
 
 
 fn main() {
-    // println!("FRAMES_AMOUNT = {}", FRAMES_AMOUNT);
+    // println!("FRAMES_AMOUNT = {FRAMES_AMOUNT}");
 
-    show_video();
+    // show_video();
 
     // compress_video_by_huffman();
-    // compress_by_sequence();
+    compress_by_sequence();
 
     // let mut x: i32;
     // let mut f = || {
     //     x = 1;
     // };
     // f();
-    // println!("x = {}", x);
+    // println!("x = {x}");
 
     println!("\nProgram finished successfully!");
 }
@@ -1006,8 +1006,8 @@ mod tests {
                 (e, ua_to_bv([1, 1, 1])),
             ]);
             let actual  : HashMap<&str, WordCompressed> = build_best_dictionary(dict);
-            println!("expected = {:#?}", expected);
-            println!("actual   = {:#?}", actual);
+            println!("expected = {expected:#?}");
+            println!("actual   = {actual:#?}");
             assert_eq!(expected, actual);
         }
 
@@ -1174,7 +1174,7 @@ mod tests {
                     ]));
                     let huffman_compressed: HuffmanCompressed = array.clone().compress_by_huffman(WORD_LEN);
                     let array_compressed_decompressed: Array2dBool<N> = huffman_compressed.decompress();
-                    println!("calc_weight = {}", huffman_compressed.calc_weight());
+                    println!("calc_weight = {weight}", weight = huffman_compressed.calc_weight());
                     // assert_eq!(bafuv([]), vec_compressed);
                     // assert_eq!(HashMap::from([]), dict_decompress);
                     assert_eq!(array, array_compressed_decompressed);
