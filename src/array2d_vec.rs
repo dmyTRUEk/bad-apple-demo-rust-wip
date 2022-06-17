@@ -1,8 +1,14 @@
 //! Array2d impl by dynamic array
 
-use std::ops::{Index, IndexMut};
+use std::ops::{
+    Index,
+    IndexMut,
+};
 
-use crate::{HuffmanCompressed, SequenceCompressed};
+use crate::compressions::{
+    huffman::HuffmanCompressed,
+    sequence::SequenceCompressed,
+};
 
 
 

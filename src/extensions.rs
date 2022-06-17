@@ -1,7 +1,10 @@
 // Extensions
 
-use std::collections::HashMap;
-use std::hash::Hash;
+use std::{
+    collections::HashMap,
+    hash::Hash,
+};
+
 
 
 pub trait ExtensionTo01String {
